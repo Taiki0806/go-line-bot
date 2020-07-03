@@ -1,4 +1,9 @@
-# [WIP]goのlinebot
+# goのlinebot
+
+## description
+
+- テキストを送った場合は同じメッセージを返す
+- スタンプを送った場合は指定されたメッセージを返す
 
 ## usage
 
