@@ -7,13 +7,11 @@ import (
 	"os"
 
 	"github.com/line/line-bot-sdk-go/linebot"
+	"github.com/line/line-bot-sdk-go/linebot/httphandler"
 )
 
 func main() {
-	// TODO: MultiStageBuildで環境変数の読み込みどうする？
-	// NOTE: https://github.com/line/line-bot-sdk-go/blob/master/examples/echo_bot_handler/server.go
-	// CHANNEL_SECRETとCHANNEL_TOKENはLine Developersから取得する
-	bot, err := linebot.New(
+	handler, err := httphandler.New(
 		os.Getenv("CHANNEL_SECRET"),
 		os.Getenv("CHANNEL_TOKEN"),
 	)
@@ -22,38 +20,35 @@ func main() {
 	}
 
 	// Setup HTTP Server for receiving requests from LINE platform
-	http.HandleFunc("/callback", func(w http.ResponseWriter, req *http.Request) {
-		// eventsにはrequestで受け取ったbodyのスライスが入る
-		events, err := bot.ParseRequest(req)
+	handler.HandleEvents(func(events []*linebot.Event, r *http.Request) {
+		bot, err := handler.NewClient()
 		if err != nil {
-			if err == linebot.ErrInvalidSignature {
-				w.WriteHeader(400)
-			} else {
-				w.WriteHeader(500)
-			}
+			log.Print(err)
 			return
 		}
-
 		for _, event := range events {
 			if event.Type == linebot.EventTypeMessage {
 				switch message := event.Message.(type) {
 				case *linebot.TextMessage:
+					// log確認用
+					fmt.Println(message.Text)
 					if _, err = bot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(message.Text)).Do(); err != nil {
+						fmt.Println("textでエラー発生")
 						log.Print(err)
 					}
 				case *linebot.StickerMessage:
-					replyMessage := fmt.Sprintf(
-						"sticker id is %s, stickerResourceType is %s", message.StickerID, message.StickerResourceType)
+					replyMessage := fmt.Sprintf("スタンプ嬉しい！ありがとう！！")
 					if _, err = bot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(replyMessage)).Do(); err != nil {
+						fmt.Println("stampでエラー発生")
 						log.Print(err)
 					}
 				}
 			}
 		}
 	})
-	// This is just sample code.
-	// For actual use, you must support HTTPS by using `ListenAndServeTLS`, a reverse proxy or something else.
-	// PORTにはherokuにデプロイしたドメインを入れる
+	http.Handle("/callback", handler)
+
+	// For actually use, you must support HTTPS by using `ListenAndServeTLS`, reverse proxy or etc.
 	if err := http.ListenAndServe(":"+os.Getenv("PORT"), nil); err != nil {
 		log.Fatal(err)
 	}
